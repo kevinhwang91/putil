@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+
+get_pic() {
+    pic_uri=$(gsettings get org.gnome.desktop.background picture-uri)
+    pic_uri=${pic_uri%\'}
+    echo ${pic_uri#*//}
+}
+
+setup_pic() {
+    gsettings set org.gnome.desktop.background picture-uri $1 2>/dev/null
+    gsettings set org.gnome.desktop.screensaver picture-uri $1 2>/dev/null
+}
+
+reset() {
+    rm $time_stamp >/dev/null 2>&1
+    rm $err_log >/dev/null 2>&1
+}
+
+change_pic() {
+    pic=
+    now=$(date +%s)
+    dead_line=$(cat $time_stamp 2>/dev/null)
+    if [[ -z $1 ]]; then
+        if [[ $dead_line -le $now ]]; then
+            pic=$wallpaper_dir_path/$(ls $wallpaper_dir_path | shuf -n 1)
+            if [[ -z $pic ]]; then
+                echo "$(date -Isecond):No picture in Wallpaper directory." | tee -a $err_log
+                return 1
+            fi
+        fi
+    else
+        pic=$1
+        if [[ -z $pic ]]; then
+            echo "No picture found."
+            return 1
+        fi
+    fi
+
+    if [[ -n $pic ]]; then
+        setup_pic "file://$pic"
+        echo $(($now + $period)) >$time_stamp
+    fi
+}
+
+parse_conf() {
+
+    w_str=$(awk -F ' *= *' '/^wallpaper_dir_path/{print $2}' $app_conf | sed "s|^~|$HOME|")
+
+    i_str=$(awk -F ' *= *' '/^interval/{print $2}' $app_conf)
+    p_str=$(awk -F ' *= *' '/^period/{print $2}' $app_conf)
+
+    wallpaper_dir_path=$(echo ${w_str%%#*})
+    interval=${i_str%%#*}
+    period=${p_str%%#*}
+
+    if [[ ! -d $wallpaper_dir_path ]]; then
+        echo "$(date -Isecond):Wallpaper directory is not existed." | tee -a $err_log
+        exit 1
+    fi
+
+    re='^ *([0-9]+ *(\+|\*|\-|\/) *)*[0-9]+ *$'
+    if [[ ! $interval =~ $re ]]; then
+        echo "$(date -Isecond):Fail to parse interval." | tee -a $err_log
+        exit 1
+    fi
+
+    if [[ ! $period =~ $re ]]; then
+        echo "$(date -Isecond):Fall to parse period." | tee -a $err_log
+        exit 1
+    fi
+
+    interval=$(($interval))
+    period=$(($period))
+}
+
+is_running() {
+    pp=$(pgrep -f putil)
+    if [[ $(echo $pp | wc -w) > 1 ]]; then
+        echo "Putil is running now."
+        exit 1
+    fi
+}
+
+start_worker() {
+
+    parse_conf
+
+    while true; do
+        change_pic
+        sleep $interval
+    done
+
+}
+
+show_help() {
+    echo "Usage: putil [-drsgh] [picture]."
+    echo "-h, --help                     Show help."
+    echo "-d, --delete                   Delete the persistent file."
+    echo "-r, --run                      Change picture periodically, please setup app.conf before running."
+    echo "-s, --set  [picture]           Set picture immediately."
+    echo "-g, --get                      Get current picture path."
+}
+
+exec_path=$(readlink $0)
+
+[[ -z $exec_path ]] && exec_path=$0
+work_dir=$(cd -P "$(dirname $exec_path)" && pwd -P)
+app_conf=$work_dir/app.conf
+time_stamp=$work_dir/.time_stamp
+err_log=$work_dir/err_log
+
+case $1 in
+-d | --delete)
+    reset
+    ;;
+-r | --run)
+    is_running
+    start_worker
+    ;;
+-s | --set)
+    reset
+    parse_conf
+    change_pic $2
+    ;;
+-g | --get)
+    get_pic
+    ;;
+-h | --help | *)
+    show_help
+    ;;
+esac
+exit 0
