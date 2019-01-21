@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 get_pic() {
-    pic_uri=$(gsettings get org.gnome.desktop.background picture-uri)
+    local pic_uri=$(gsettings get org.gnome.desktop.background picture-uri)
     pic_uri=${pic_uri%\'}
     echo ${pic_uri#*//}
 }
@@ -17,9 +17,9 @@ reset() {
 }
 
 change_pic() {
-    pic=
-    now=$(date +%s)
-    dead_line=$(cat $time_stamp 2>/dev/null)
+    local pic=
+    local now=$(date +%s)
+    local dead_line=$(cat $time_stamp 2>/dev/null)
     if [[ -z $1 ]]; then
         if [[ $dead_line -le $now ]]; then
             pic=$wallpaper_dir_path/$(ls $wallpaper_dir_path | shuf -n 1)
@@ -44,10 +44,10 @@ change_pic() {
 
 parse_conf() {
 
-    w_str=$(awk -F ' *= *' '/^wallpaper_dir_path/{print $2}' $app_conf | sed "s|^~|$HOME|")
+    local w_str=$(awk -F ' *= *' '/^wallpaper_dir_path/{print $2}' $app_conf | sed "s|^~|$HOME|")
 
-    i_str=$(awk -F ' *= *' '/^interval/{print $2}' $app_conf)
-    p_str=$(awk -F ' *= *' '/^period/{print $2}' $app_conf)
+    local i_str=$(awk -F ' *= *' '/^interval/{print $2}' $app_conf)
+    local p_str=$(awk -F ' *= *' '/^period/{print $2}' $app_conf)
 
     wallpaper_dir_path=$(echo ${w_str%%#*})
     interval=${i_str%%#*}
@@ -74,7 +74,7 @@ parse_conf() {
 }
 
 is_running() {
-    pp=$(pgrep -f putil)
+    local pp=$(pgrep -f putil)
     if [[ $(echo $pp | wc -w) > 1 ]]; then
         echo "Putil is running now."
         exit 1
