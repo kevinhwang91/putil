@@ -19,3 +19,5 @@ Usage: putil [-drsgh] [picture].
 -s, --set  [picture]           Set picture immediately.  
 -g, --get                      Get current picture path.
 
+## Demonstration
+![image](./putil.gif)
